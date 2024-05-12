@@ -1,156 +1,157 @@
-import csv
-import pandas as pd
-import re
+import csv as csv 
+import re as re 
+ 
+def load_file(filename): 
+    result = [] 
+    with open (filename, 'r') as csvfile: 
+        csvreader = csv.reader(csvfile, delimiter='|') 
+        fieldes = next(csvreader) 
+ 
+        for row in csvreader: 
+            result.append(row) 
+    return result 
+ 
+def upload_param(players, regexp, actions, abr): 
+    param_list = [] 
+ 
+    for play in actions: 
+        present_action = play[7] 
+        try: 
+            param_regexp = re.compile(regexp) 
+            param = param_regexp.search(present_action)[1] 
+            param_list.append(param) 
+        except: 
+            pass 
+ 
+    for param in param_list: 
+        try: 
+            for player in players["home_team"]["players_data"]: 
+                if player["player_name"] == param: 
+                    player[abr] += 1 
+            for player in players["away_team"]["players_data"]: 
+                if player["player_name"] == param: 
+                    player[abr] += 1 
+        except: 
+            pass 
+ 
+ 
+def format(play_by_play_moves): 
+    result = {"home_team": {"name": "", "players_data": []}, "away_team": {"name": "", "players_data": []}} 
+ 
+    for play in play_by_play_moves: 
+        result["away_team"]["name"] = play[3] 
+        result["home_team"]["name"] = play[4] 
+        break 
+ 
+    for play in play_by_play_moves: 
+        home_team = play[4] 
+        relevant_team = play[2] 
+        present_action = play[7] 
+ 
+        try: 
+            player_name_regexp = re.compile(r"^([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})") 
+            player_name = player_name_regexp.search(present_action)[1] 
+            player = {"player_name": player_name, "FG": 0, "FGM": 0, "FGA": 0, "FG%": 0.0, "3P": 0, "3PM": 0, "3PA": 0, "3P%": 0.0, "2P": 0, "2PM": 0, "FT": 0, "FTM": 0, "FTA": 0, "FT%": 0.0, "ORB": 0, "DRB": 0, "TRB": 0, "AST": 0, "STL": 0, "BLK": 0, "TOV": 0, "PF": 0, "PTS": 0, "MCPFT": 0, "MICPFT": 0} 
+ 
+            if(relevant_team == home_team): 
+                if not player in result["home_team"]["players_data"]: 
+                    result["home_team"]["players_data"].append(player) 
+            else: 
+                if not player in result["away_team"]["players_data"]: 
+                    result["away_team"]["players_data"].append(player) 
+        except: 
+            pass 
+ 
+    return result 
+def analyse_nba_game(): 
+    play_by_play_moves = load_file("nba_game_warriors_thunder_20181016.txt") 
+    players_data = format(play_by_play_moves) 
+    upload_param(players_data, "^([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) makes 3-pt", play_by_play_moves, "3P") 
+    upload_param(players_data, "^([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) misses 3-pt", play_by_play_moves, "3PM") 
+    upload_param(players_data, "^([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) makes 2-pt", play_by_play_moves, "2P") 
+    upload_param(players_data, "^([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) misses 2-pt", play_by_play_moves, "2PM") 
+    upload_param(players_data, "Offensive rebound by ([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})", play_by_play_moves, "ORB") 
+    upload_param(players_data, "Defensive rebound by ([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})", play_by_play_moves, "DRB") 
+    upload_param(players_data, "block by ([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})", play_by_play_moves, "BLK") 
+    upload_param(players_data, "steal by ([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})", play_by_play_moves, "STL") 
+    upload_param(players_data, "Turnover by ([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})", play_by_play_moves, "TOV") 
+    upload_param(players_data, "assist by ([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})", play_by_play_moves, "AST") 
+    upload_param(players_data, "Personal foul by ([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,})", play_by_play_moves, "PF") 
+    upload_param(players_data, "([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) makes free throw", play_by_play_moves, "FT")
 
-# Define regular expressions to match the desired patterns
-FG_pattern = r"(\w+\.?\s\w+) makes 2-pt"
-FGA_pattern = r"(\w+\.?\s\w+) misses 2-pt"
-threeP_pattern = r"(\w+\.?\s\w+) makes 3-pt"
-threePA_pattern = r"(\w+\.?\s\w+) misses 3-pt"
-FT_pattern = r"(\w+\.?\s\w+) makes free throw"
-FTA_pattern = r"(\w+\.?\s\w+) misses free throw"
-ORB_pattern = r"Offensive rebound by (\w+\.?\s\w+)"
-DRB_pattern = r"Defensive rebound by (\w+\.?\s\w+)"
-AST_pattern = r"assist by (\w+\.?\s\w+)"
-STL_pattern = r"steal by (\w+\.?\s\w+)"
-BLK_pattern = r"block by (\w+\.?\s\w+)"
-TOV_pattern = r"Turnover by (\w+\.?\s\w+)"
-PF_pattern = r"Personal foul by (\w+\.?\s\w+)"
-MCPFT_pattern = r"(\w+\.?\s\w+) makes clear path free throw"
-MICPFT_pattern = r"(\w+\.?\s\w+) misses clear path free throw"
-
-    
-def load_data(filename):
-    # Define column names for DataFrame
-    columns = ["PERIOD", "REMAINING_SEC", "RELEVANT_TEAM", "AWAY_TEAM", "HOME_TEAM", "AWAY_SCORE", "HOME_SCORE", "DESCRIPTION"]
-    df = pd.read_csv(filename, delimiter="|", header=None, names=columns)
-    return df
-
-def analyse_nba_game(play_by_play_moves):
-    # Create a dictionary to hold home team and away team data
-    out_dict = {
-         "home_team": {
-              "name": play_by_play_moves.loc[0, "HOME_TEAM"],
-              "players_data": {}
-                 },
-          "away_team": {
-              "name": play_by_play_moves.loc[0, "AWAY_TEAM"],
-              "players_data": {}
-          }
-     }
-
-    player_data = {
-      "FG": 0,
-      "FGA": 0,
-      "FG%": 0.0,
-      "3P": 0,
-      "3PM": 0,
-      "3PA": 0,
-      "3P%": 0.0,
-      "2P": 0,
-      "2PM": 0,
-      "FT": 0,
-      "FTM": 0,
-      "FTA": 0,
-      "FT%": 0.0,
-      "ORB": 0,
-      "DRB": 0,
-      "TRB": 0,
-      "AST": 0,
-      "STL": 0,
-      "BLK": 0,
-      "TOV": 0,
-      "PF": 0,
-      "PTS": 0,
-      "MCPFT": 0,
-      "MICPFT": 0
-}
-   
-    for _, row in play_by_play_moves.iterrows():
-        relevant_team = "home_team" if row["RELEVANT_TEAM"] == out_dict["home_team"]["name"] else "away_team"
-        description = row["DESCRIPTION"]
-        split_description = description.split(". ")
-        if len(split_description) > 1:
-            patterns = [
-              {"text":FG_pattern, "key": "2P"}, {"text": FGA_pattern, "key": "2PM"}, 
-              {"text": threeP_pattern, "key": "3P"}, {"text": threePA_pattern, "key": "3PM"}, 
-              {"text": FT_pattern, "key": "FT"}, {"text": FTA_pattern, "key": "FTM"}, 
-              {"text": ORB_pattern, "key": "ORB"}, {"text": DRB_pattern, "key": "DRB"}, 
-              {"text": AST_pattern, "key": "AST"}, {"text": STL_pattern, "key": "STL"}, 
-              {"text": BLK_pattern, "key": "BLK"}, {"text": TOV_pattern, "key": "TOV"}, 
-              {"text": PF_pattern, "key": "PF"}, {"text": MCPFT_pattern, "key": "MCPFT"},
-              {"text": MICPFT_pattern, "key": "MICPFT"}
-            ]
-            for pattern in patterns:
-                match = re.search(pattern.get('text'), description)
-                if match:
-                    player_name = match.group(1)
-                    
-                    if player_name not in out_dict[relevant_team]["players_data"]:
-                        out_dict[relevant_team]["players_data"][player_name] = player_data.copy()
-                    out_dict[relevant_team]["players_data"][player_name][pattern.get('key')] += 1
-          
-    for team_name, team in out_dict.items():
-      for player_name, player in team["players_data"].items():
-        player["FG"] = player["3P"] + player["2P"]
-        player["FGA"] = player["3P"] + player["2P"] + player["3PM"] + player["2PM"]
-        player["3PA"] = player["3P"] + player["3PM"]
-        player["FT"] = player["FT"] * 1 + player["MCPFT"] + player["MICPFT"]
-        player["FTA"] = player["FT"] + player["FTM"]
-        # Calculate field goal percentage
-        if player.get('FGA', 0) > 0:
-          player['FG%'] = round(player.get('FG', 0) / player['FGA'], 3)
-        # Calculate 3-point percentage
-        if player.get("3PA") > 0:
-          player['3P%'] = round(player.get('3P', 0) / player['3PA'], 3)
-        # Calculate free throw percentage
-        if player.get("FTA") > 0:
-          player['FT%'] = round(player.get('FT', 0) / player['FTA'], 3)
-        # Calculate total points scored
-        player['PTS'] = player.get('3P') * 3 + player.get("2P") * 2 + player.get('FT')
-        # Calculate total rebounds
-        player['TRB'] = player.get('ORB') + player.get('DRB')
-        
-    for team_name, team in out_dict.items():
-      for player_name, player in team["players_data"].items():
-        del player["MCPFT"]
-        del player["MICPFT"]
-
-    return out_dict
-
-def print_nba_game_stats(team_dict):
-  # Header
-  print("Players\tFG\tFGA\tFG%\t3P\t3PA\t3P%\tFT\tFTA\tFT%\tORB\tDRB\tTRB\tAST\tSTL\tBLK\tTOV\tPF\tPTS")
-  total_stats = {}
-  for team in team_dict.items():
-    for player, player_data in team[1]['players_data'].items():
-        print(f'{player}\t{player_data["FG"]}\t{player_data["FGA"]}\t{player_data["FG%"]}\t{player_data["3P"]}\t{player_data["3PA"]}\t{player_data["3P%"]}\t{player_data["FT"]}\t{player_data["FTA"]}\t{player_data["FT%"]}\t{player_data["ORB"]}\t{player_data["DRB"]}\t{player_data["TRB"]}\t{player_data["AST"]}\t{player_data["STL"]}\t{player_data["BLK"]}\t{player_data["TOV"]}\t{player_data["PF"]}\t{player_data["PTS"]}')
-        for stat_name, stat_value in player_data.items():
-          if stat_name not in total_stats:
-            total_stats[stat_name] = stat_value
-          else:
-            total_stats[stat_name] += stat_value
-
-  # Print out the Total row
-  print(f'Team Total\t{total_stats["FG"]}\t{total_stats["FGA"]}\t{total_stats["FG%"]}\t{total_stats["3P"]}\t{total_stats["3PA"]}\t{total_stats["3P%"]}\t{total_stats["FT"]}\t{total_stats["FTA"]}\t{total_stats["FT%"]}\t{total_stats["ORB"]}\t{total_stats["DRB"]}\t{total_stats["TRB"]}\t{total_stats["AST"]}\t{total_stats["STL"]}\t{total_stats["BLK"]}\t{total_stats["TOV"]}\t{total_stats["PF"]}\t{total_stats["PTS"]}')
-            
-def _main():
-    play_by_play_moves = load_data("nba_game_warriors_thunder_20181016.txt")
-    team_dict = analyse_nba_game(play_by_play_moves)
-    
-    
-    #for index, row in play_by_play_moves.iterrows():
-        #print("{}|{}|{}|{}|{}|{}|{}|{}".format(
-         #   row["PERIOD"], 
-         #   row["REMAINING_SEC"], 
-         #   row["RELEVANT_TEAM"], 
-         #   row["AWAY_TEAM"], 
-         #   row["HOME_TEAM"], 
-         #   row["AWAY_SCORE"], 
-         #   row["HOME_SCORE"], 
-         #   row["DESCRIPTION"]
-        #))
-
-    print_nba_game_stats(team_dict)
-
-_main()
+    upload_param(players_data, "([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) misses freethrow", play_by_play_moves, "FTM") 
+    upload_param(players_data, "([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) makes clear path free throw ", play_by_play_moves, "MCPFT") 
+    upload_param(players_data, "([A-Z]\. [A-Z]\w{1,}|[A-Z]\. [A-Z]\w{1,}\-\w{1,}) misses clear path free throw ", play_by_play_moves, "MICPFT") 
+ 
+    for team in players_data.items(): 
+        for player in team[1]["players_data"]: 
+            player["FG"] = player["3P"] + player["2P"] 
+            player["FGA"] = player["3P"] + player["2P"]
+            player["3PM"] + player["2PM"] 
+            player['3PA'] = player['3P'] + player['3PM'] 
+            player["FT"] = player["FT"] * 1 + player["MCPFT"] + player["MICPFT"] 
+            player["FTA"] = player["FT"] + player["FTM"] 
+ 
+            player["PTS"] = player["3P"] * 3 + player["2P"] * 2 + player["FT"] 
+ 
+            player["TRB"] = player["DRB"] + player["ORB"] 
+ 
+            try: 
+                player["FG%"] = round(player["FG"] / player["FGA"], 3) 
+            except: 
+               pass 
+ 
+            try: 
+                player['3P%'] = round(player['3P'] / player['3PA'], 3) 
+            except: 
+                pass 
+ 
+            try: 
+                player["FT%"] = round(player["FT"] / player["FTA"], 3) 
+            except: 
+                pass 
+ 
+    for team in players_data.items(): 
+        for player in team[1]["players_data"]: 
+            del player["FGM"] 
+            del player["2P"] 
+            del player["2PM"] 
+            del player["3PM"] 
+            del player["FTM"] 
+            del player["MCPFT"] 
+            del player["MICPFT"] 
+ 
+    return players_data 
+ 
+def print_table(): 
+    players_data = analyse_nba_game() 
+    for team in players_data.items(): 
+        fg, fga, fgp, p3, p3a, p3p, ft, fta, ftp, orb, drb, trb, ast, stl, blk, tov, pf, pts = 0, 0, 0.0, 0, 0, 0.0, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
+        print(f'{"Players name":<20} | {"FG":<5} | {"FGA":<5} | {"FG%":<6} | {"3P":<5} | {"3PA":<5} | {"3P%":<6} | {"FT":<5} | {"FTA":<5} | {"FT%":<6} | {"ORB":<5} | {"DRB":<5} | {"TRB":<5} | {"AST":<5} | {"STL":<5} | {"BLK":<5} | {"TOV":<5} | {"PF":<5} | {"PTS":<5} ') 
+        for player in team[1]["players_data"]: 
+            print(f'{player["player_name"]:<20} | {player["FG"]:<5} | {player["FGA"]:<5} | {player["FG%"]:<6} | {player["3P"]:<5} | {player["3PA"]:<5} | {player["3P%"]:<6} | {player["FT"]:<5} | {player["FTA"]:<5} | {player["FT%"]:<6} | {player["ORB"]:<5} | {player["DRB"]:<5} | {player["TRB"]:<5} | {player["AST"]:<5} | {player["STL"]:<5} | {player["BLK"]:<5} | {player["TOV"]:<5} | {player["PF"]:<5} | {player["PTS"]:<5} ') 
+            fg += player["FG"] 
+            fga += player["FGA"] 
+            p3 += player["3P"] 
+            p3a += player["3PA"] 
+            ft += player["FT"] 
+            fta += player["FTA"] 
+            orb += player["ORB"] 
+            drb += player["DRB"] 
+            ast += player["AST"] 
+            stl += player["STL"] 
+            blk += player["BLK"] 
+            tov += player["TOV"] 
+            pf += player["PF"] 
+            pts += player["PTS"] 
+ 
+        fgp = round(fg / fga, 3) if fga > 0 else 0 
+        p3p = round(p3 / p3a, 3) if fga > 0 else 0 
+        ftp = round(ft / fta, 3) if fga > 0 else 0 
+        trb = orb + drb 
+ 
+        print(f'{"Team Totals":<20} | {fg:<5} | {fga:<5} | {fgp:<6} | {p3:<5} | {p3a:<5} | {p3p:<6} | {ft:<5} | {fta:<5} | {ftp:<6} | {orb:<5} | {drb:<5} | {trb:<5} | {ast:<5} | {stl:<5} | {blk:<5} | {tov:<5} | {pf:<5} | {pts:<5} ') 
+        print("\n") 
+ 
+ 
+print_table()
